@@ -1,0 +1,60 @@
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.seasonal import seasonal_decompose
+from sklearn.ensemble import IsolationForest
+from sklearn.svm import OneClassSVM
+from sklearn.preprocessing import StandardScaler
+from scipy import stats
+
+def detect_anomalies_combined(df, ma_window=20, ma_n_sigmas=2, decomp_freq=7, decomp_n_sigmas=2, 
+                              if_contamination=0.01, svm_nu=0.1, zscore_threshold=3):
+    # Moving Average
+    df['ma'] = df['y'].rolling(window=ma_window).mean()
+    df['ma_std'] = df['y'].rolling(window=ma_window).std()
+    df['ma_lower'] = df['ma'] - (ma_n_sigmas * df['ma_std'])
+    df['ma_upper'] = df['ma'] + (ma_n_sigmas * df['ma_std'])
+    df['ma_anomaly'] = (df['y'] < df['ma_lower']) | (df['y'] > df['ma_upper'])
+
+    # Seasonal Decomposition
+    decomposition = seasonal_decompose(df['y'], model='additive', period=decomp_freq)
+    residuals = decomposition.resid
+    res_mean, res_std = np.mean(residuals), np.std(residuals)
+    df['decomp_anomaly'] = (residuals < res_mean - decomp_n_sigmas * res_std) | \
+                           (residuals > res_mean + decomp_n_sigmas * res_std)
+
+    # Isolation Forest
+    iso_forest = IsolationForest(contamination=if_contamination, random_state=42)
+    df['iso_forest_anomaly'] = iso_forest.fit_predict(df[['y']])
+    df['iso_forest_anomaly'] = df['iso_forest_anomaly'].map({1: False, -1: True})
+
+    # One-Class SVM
+    scaler = StandardScaler()
+    y_scaled = scaler.fit_transform(df[['y']])
+    one_class_svm = OneClassSVM(kernel='rbf', nu=svm_nu)
+    df['svm_anomaly'] = one_class_svm.fit_predict(y_scaled)
+    df['svm_anomaly'] = df['svm_anomaly'].map({1: False, -1: True})
+
+    # Z-score
+    df['z_score'] = stats.zscore(df['y'])
+    df['zscore_anomaly'] = df['z_score'].abs() > zscore_threshold
+
+    # Combine all methods
+    df['anomaly_count'] = df['ma_anomaly'].astype(int) + \
+                          df['decomp_anomaly'].astype(int) + \
+                          df['iso_forest_anomaly'].astype(int) + \
+                          df['svm_anomaly'].astype(int) + \
+                          df['zscore_anomaly'].astype(int)
+
+    # You can adjust this threshold based on how many methods should agree
+    df['is_anomaly'] = df['anomaly_count'] >= 3
+
+    return df
+
+# Usage
+df = pd.read_csv('your_data.csv')  # Assume this has 'ds' and 'y' columns
+df = detect_anomalies_combined(df)
+
+# Get anomalies detected by at least 3 methods
+anomalies = df[df['is_anomaly']]
+
+print(anomalies)
