@@ -16,6 +16,10 @@ seaborn = "^0.13.2"
 scipy = "^1.14.0"
 statsmodels = "^0.14.2"
 pymannkendall = "^1.4.3"
+mlforecast = "^0.13.1"
+polars = "^1.2.0"
+yfinance = "^0.2.40"
+lightgbm = "^4.4.0"
 
 
 [tool.poetry.group.dev.dependencies]
