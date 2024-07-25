@@ -7,11 +7,14 @@ from mlforecast.target_transforms import Differences
 from lightgbm import LGBMRegressor
 import matplotlib.pyplot as plt
 import numpy as np
-
+from mlforecast.utils import PredictionIntervals
+import tabulate
 def fetch_stock_data(ticker_symbol, days=2):
     ny_tz = pytz.timezone('America/New_York')
     end_date = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
     start_date = end_date - timedelta(days=days)
+
+    print(f"Fetching data for {ticker_symbol} from {start_date} to {end_date}\n")
     
     stock_data = yf.Ticker(ticker_symbol)
     historical_data = stock_data.history(start=start_date, end=end_date, interval='1m')['Close']
@@ -32,7 +35,7 @@ def create_model():
     )
 
 def main():
-    ticker_symbol = 'AAPL'
+    ticker_symbol = 'MSFT'
     
     try:
         df = fetch_stock_data(ticker_symbol, days=2)
@@ -71,23 +74,32 @@ def main():
         
         # Train model on day t-1
         mlf = create_model()
-        mlf.fit(day_t_1)
+        mlf.fit(day_t_1, prediction_intervals=PredictionIntervals(n_windows=10, h = 1), as_numpy=True)
         
         # Predict for day t and update with actuals
         predictions = []
+        lows = []
+        highs = []
         actuals = []
         
         for i in range(len(day_t)):
             # Make prediction
-            pred = mlf.predict(1)
+            pred = mlf.predict(1, level = [99])
             pred_value = pred['LGBMRegressor'].values[0]
+            lower_bound = pred['LGBMRegressor-lo-99'].values[0]
+            upper_bound = pred['LGBMRegressor-hi-99'].values[0]
+
+       
             predictions.append(pred_value)
+            lows.append(lower_bound)
+            highs.append(upper_bound)
             
             # Get actual value
             actual_value = day_t.iloc[i]['y']
             actuals.append(actual_value)
-            
-            print(f"Predicted: {pred_value}, Actual: {actual_value}")
+            # print(f"__________________________________________________")
+            # print(f"|Predicted: {pred_value} | Actual: {actual_value}|")
+            print(tabulate.tabulate([['Predicted', pred_value], ['Actual', actual_value]]))
             
             # Update the model with the actual value
             new_data = pd.DataFrame({
@@ -106,6 +118,8 @@ def main():
         plt.figure(figsize=(15, 7))
         plt.plot(day_t['ds'], actuals, label='Actual')
         plt.plot(day_t['ds'], predictions, label='Predicted')
+        plt.fill_between(day_t['ds'], lows, highs, color='gray', alpha=0.5, label='95% Prediction Interval')
+
         plt.xlabel('Time')
         plt.ylabel('Price')
         plt.title(f'{ticker_symbol} Stock Price: Day t Simulation (Actual vs Predicted)')
