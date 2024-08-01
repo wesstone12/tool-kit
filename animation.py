@@ -103,7 +103,8 @@ def main():
         print(f"Day t-1 data plot saved as {ticker_symbol}_day_t_1_plot.png")
         
         mlf = create_model()
-        mlf.fit(day_t_1, prediction_intervals=PredictionIntervals(n_windows=10, h = 1), as_numpy=True)
+        # mlf.fit(day_t_1, prediction_intervals=PredictionIntervals(n_windows=10, h = 1), as_numpy=True)
+        mlf.fit(day_t_1, prediction_intervals=PredictionIntervals(n_windows=10, h = 5), as_numpy=True)
         
         predictions = []
         lows = []
@@ -148,13 +149,20 @@ def main():
 
             # Get the prediction for the next time step
             next_pred = mlf.predict(1, level=[level])
+            #few steps ahead lol
+            new_pred_few = mlf.predict(5, level=[level])
+            new_pred_few_value = new_pred_few[f'LGBMRegressor'].values[0]
+            new_pred_few_lower_bound = new_pred_few[f'LGBMRegressor-lo-{level}'].values[0]
+            new_pred_few_upper_bound = new_pred_few[f'LGBMRegressor-hi-{level}'].values[0]
+
             next_pred_value = next_pred['LGBMRegressor'].values[0]
             next_lower_bound = next_pred[f'LGBMRegressor-lo-{level}'].values[0]
             next_upper_bound = next_pred[f'LGBMRegressor-hi-{level}'].values[0]
 
                         # Make trading decision based on current information
             if i > 10:             
-                cash, shares, signal = execute_trade(actual_value,  lower_bound, upper_bound, next_pred_value, cash, shares, threshold)
+                # cash, shares, signal = execute_trade(actual_value,  lower_bound, upper_bound, next_pred_value, cash, shares, threshold)
+                cash, shares, signal = execute_trade(actual_value,  new_pred_few_lower_bound, new_pred_few_upper_bound, new_pred_few_value, cash, shares, threshold)
             else:
                 signal = "HOLD"
             
