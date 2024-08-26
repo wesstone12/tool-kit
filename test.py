@@ -1,3 +1,18 @@
+# /// script
+# requires-python = ">=3.7,<3.11"
+# dependencies = [
+    # "llvmlite ==0.33.0",
+#     "pandas",
+#     "yfinance",
+#     "pytz",
+#     "mlforecast",
+#     "lightgbm",
+#     "matplotlib",
+#     "numpy",
+#     "tabulate",
+#     "numba",  # This will pull in a compatible version of llvmlite
+# ]
+# ///
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
@@ -12,6 +27,9 @@ import tabulate
 def fetch_stock_data(ticker_symbol, days=2):
     ny_tz = pytz.timezone('America/New_York')
     end_date = datetime.now(ny_tz).replace(hour=0, minute=0, second=0, microsecond=0)
+    #make end date 8/23/2024
+    end_date = datetime(2024, 8, 23, 0, 0, 0, 0)
+
     start_date = end_date - timedelta(days=days)
 
     print(f"Fetching data for {ticker_symbol} from {start_date} to {end_date}\n")
