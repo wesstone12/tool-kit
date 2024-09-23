@@ -3,7 +3,7 @@ name = "tool-kit"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.12"
 dependencies = [
     "pandas>=2.2.2",
     "yfinance>=0.2.43",
@@ -21,6 +21,8 @@ dependencies = [
     "xgboost>=2.1.1",
     "scikit-learn>=1.5.1",
     "catboost>=1.2.5",
+    "polars>=1.6.0",
+    "autots>=0.6.15",
 ]
 
 [build-system]

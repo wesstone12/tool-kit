@@ -1,5 +1,5 @@
 version = 1
-requires-python = ">=3.12"
+requires-python = "==3.12"
 
 [[package]]
 name = "adagio"
@@ -132,6 +132,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fc/0f/aafca9af9315aee06a89ffde799a10a582fe8de76c563ee80bbcdc08b3fb/attrs-24.2.0.tar.gz", hash = "sha256:5cfb1b9148b5b086569baec03f20d7b6bf3bcacc9a42bebf87ffaaca362f6346", size = 792678 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/21/5b6702a7f963e95456c0de2d495f67bf5fd62840ac655dc451586d23d39a/attrs-24.2.0-py3-none-any.whl", hash = "sha256:81921eb96de3191c8258c199618104dd27ac608d9366f5e35d011eae1867ede2", size = 63001 },
+]
+
+[[package]]
+name = "autots"
+version = "0.6.15"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scikit-learn" },
+    { name = "statsmodels" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/61/fde2ede82f36a9b0b9ed710cce0bdec2b321c26883bfbbbc33de07fc6bca/autots-0.6.15.tar.gz", hash = "sha256:d48c2794835303388504757e11a47c2471616e1417b8a8b6f5fe0452595da5bc", size = 819873 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/82/8e/f84109683e038f12cb0125325c9309248d1c6d40a7dd9c78f7eb5cd16775/autots-0.6.15-py3-none-any.whl", hash = "sha256:d7af43d9f87de666463d403736a14991bb3998d1da2138e402cfed31c656c5ae", size = 851006 },
 ]
 
 [[package]]
@@ -1417,6 +1432,19 @@ wheels = [
 ]
 
 [[package]]
+name = "polars"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/a9/cf169ce361224d4b397f52d6fcceb191452ecdc50813ce2aa6c60ff46e04/polars-1.6.0.tar.gz", hash = "sha256:d7e8d5e577883a9755bc3be92ecbf6f20bced68267bdb8bdb440120e905cc19c", size = 3929590 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/a6/00e9c0cc08d8b279ee576dca105fb5b6c3f812f56ce6bbefdf127773641b/polars-1.6.0-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:6d1665c23e3574ebd47a26a5d7b619e6e73e53718c3b0bfd7d08b6a0a4ae7daa", size = 30510442 },
+    { url = "https://files.pythonhosted.org/packages/95/0d/7665314925d774236404919678c197abe4818d1820387017a23f21e27815/polars-1.6.0-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:d7f3abf085adf034720b358119c4c8e144bcc2d96010b7e7d0afa11b80da383c", size = 26758515 },
+    { url = "https://files.pythonhosted.org/packages/04/1c/1a0a0a2c076bec8501ada9496afe5486c9e994558b0c80057f7e3ee6ec16/polars-1.6.0-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a166adb429f8ee099c9d803e7470a80c76368437a8b272c67cef9eef6d5e9da1", size = 31869680 },
+    { url = "https://files.pythonhosted.org/packages/c1/95/224139dbd93ce450f194233f643f08e759f369c10c5bd62a13d615dd886c/polars-1.6.0-cp38-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:1c811b772c9476f7f0bb4445a8387d2ab6d86f5e79140b1bfba914a32788d261", size = 28441792 },
+    { url = "https://files.pythonhosted.org/packages/fa/cb/8f97ea9bbe41f862cc685b1f223ee8508c60f6510918de75637b3539e62d/polars-1.6.0-cp38-abi3-win_amd64.whl", hash = "sha256:ffae15ffa80fda5cc3af44a340b565bcf7f2ab6d7854d3f967baf505710c78e2", size = 31424668 },
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1846,7 +1874,7 @@ name = "sqlalchemy"
 version = "2.0.32"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "greenlet", marker = "(python_full_version < '3.13' and platform_machine == 'AMD64') or (python_full_version < '3.13' and platform_machine == 'WIN32') or (python_full_version < '3.13' and platform_machine == 'aarch64') or (python_full_version < '3.13' and platform_machine == 'amd64') or (python_full_version < '3.13' and platform_machine == 'ppc64le') or (python_full_version < '3.13' and platform_machine == 'win32') or (python_full_version < '3.13' and platform_machine == 'x86_64')" },
+    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/af/6f/967e987683908af816aa3072c1a6997ac9933cf38d66b0474fb03f253323/SQLAlchemy-2.0.32.tar.gz", hash = "sha256:c1b88cc8b02b6a5f0efb0345a03672d4c897dc7d92585176f88c67346f565ea8", size = 9546691 }
@@ -1977,6 +2005,7 @@ name = "tool-kit"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "autots" },
     { name = "catboost" },
     { name = "jupyter" },
     { name = "lightgbm" },
@@ -1986,6 +2015,7 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "polars" },
     { name = "pytz" },
     { name = "scikit-learn" },
     { name = "statsforecast" },
@@ -1997,7 +2027,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "catboost" },
+    { name = "autots", specifier = ">=0.6.15" },
+    { name = "catboost", specifier = ">=1.2.5" },
     { name = "jupyter", specifier = ">=1.0.0" },
     { name = "lightgbm", specifier = ">=4.5.0" },
     { name = "llvmlite", specifier = ">=0.43.0" },
@@ -2006,6 +2037,7 @@ requires-dist = [
     { name = "numba", specifier = ">=0.60.0" },
     { name = "numpy", specifier = ">=2.0.1" },
     { name = "pandas", specifier = ">=2.2.2" },
+    { name = "polars", specifier = ">=1.6.0" },
     { name = "pytz", specifier = ">=2024.1" },
     { name = "scikit-learn", specifier = ">=1.5.1" },
     { name = "statsforecast", specifier = ">=1.7.6" },
