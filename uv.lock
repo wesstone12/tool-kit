@@ -408,6 +408,18 @@ wheels = [
 ]
 
 [[package]]
+name = "faker"
+version = "30.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/0c/f9d44e8db51c2c448a22e2d2068b69f0890247d918ffc8f2f1b51898e2c0/faker-30.0.0.tar.gz", hash = "sha256:bf0207af5777950054a2a3b43f4b5bdc33b585918d2b28f1dab52ac0ffe2bac0", size = 1795010 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/72/7a16a45bacca81062186c0ded439e23f23475005a88f64d90be2a6c7b2ed/Faker-30.0.0-py3-none-any.whl", hash = "sha256:f0a60009150736c1c033bea31aa19ae63071c9dcf10adfaf9f1a87a3add84bc8", size = 1835073 },
+]
+
+[[package]]
 name = "fastjsonschema"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1864,6 +1876,20 @@ wheels = [
 ]
 
 [[package]]
+name = "seaborn"
+version = "0.13.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/59/a451d7420a77ab0b98f7affa3a1d78a313d2f7281a57afb1a34bae8ab412/seaborn-0.13.2.tar.gz", hash = "sha256:93e60a40988f4d65e9f4885df477e2fdaff6b73a9ded434c1ab356dd57eefff7", size = 1457696 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/83/11/00d3c3dfc25ad54e731d91449895a79e4bf2384dc3ac01809010ba88f6d5/seaborn-0.13.2-py3-none-any.whl", hash = "sha256:636f8336facf092165e27924f223d3c62ca560b1f2bb5dff7ab7fad265361987", size = 294914 },
+]
+
+[[package]]
 name = "send2trash"
 version = "1.8.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2046,6 +2072,7 @@ source = { editable = "." }
 dependencies = [
     { name = "autots" },
     { name = "catboost" },
+    { name = "faker" },
     { name = "jupyter" },
     { name = "lightgbm" },
     { name = "llvmlite" },
@@ -2059,6 +2086,7 @@ dependencies = [
     { name = "pyspark" },
     { name = "pytz" },
     { name = "scikit-learn" },
+    { name = "seaborn" },
     { name = "statsforecast" },
     { name = "tabulate" },
     { name = "utilsforecast" },
@@ -2070,6 +2098,7 @@ dependencies = [
 requires-dist = [
     { name = "autots", specifier = ">=0.6.15" },
     { name = "catboost", specifier = ">=1.2.5" },
+    { name = "faker", specifier = ">=30.0.0" },
     { name = "jupyter", specifier = ">=1.0.0" },
     { name = "lightgbm", specifier = ">=4.5.0" },
     { name = "llvmlite", specifier = ">=0.43.0" },
@@ -2083,6 +2112,7 @@ requires-dist = [
     { name = "pyspark", specifier = ">=3.5.3" },
     { name = "pytz", specifier = ">=2024.1" },
     { name = "scikit-learn", specifier = ">=1.5.1" },
+    { name = "seaborn", specifier = ">=0.13.2" },
     { name = "statsforecast", specifier = ">=1.7.6" },
     { name = "tabulate", specifier = ">=0.9.0" },
     { name = "utilsforecast", specifier = ">=0.2.3" },
