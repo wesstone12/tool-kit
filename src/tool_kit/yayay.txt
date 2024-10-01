@@ -1,0 +1,794 @@
+# /// script
+# requires-python = "==3.10"
+# dependencies = [
+#     "adagio==0.2.6",
+#     "alembic==1.13.2",
+#     "appdirs==1.4.4",
+#     "cloudpickle==3.0.0",
+#     "colorama==0.4.6",
+#     "colorlog==6.8.2",
+#     "contourpy==1.2.1",
+#     "coreforecast==0.0.12",
+#     "cycler==0.12.1",
+#     "et-xmlfile==1.1.0",
+#     "fonttools==4.53.1",
+#     "fs==2.4.16",
+#     "fsspec==2024.6.1",
+#     "fugue==0.9.1",
+#     "greenlet==3.0.3",
+#     "joblib==1.4.2",
+#     "kiwisolver==1.4.5",
+#     "llvmlite==0.43.0",
+#     "lightgbm==4.5.0",
+#     "mako==1.3.5",
+#     "markdown-it-py==3.0.0",
+#     "markupsafe==2.1.5",
+#     "matplotlib==3.9.2",
+#     "mdurl==0.1.2",
+#     "mlforecast==0.13.4",
+#     "numba==0.60.0",
+#     "numpy==2.0.2",
+#     "openpyxl==3.1.5",
+#     "optuna==3.6.1",
+#     "packaging==24.1",
+#     "pandas==2.2.2",
+#     "patsy==0.5.6",
+#     "pillow==10.4.0",
+#     "pyarrow==17.0.0",
+#     "pygments==2.18.0",
+#     "pyparsing==3.1.4",
+#     "python-dateutil==2.9.0.post0",
+#     "pytz==2024.1",
+#     "pyyaml==6.0.2",
+#     "rich==13.8.0",
+#     "scikit-learn==1.5.1",
+#     "scipy==1.14.1",
+#     "seaborn==0.13.2",
+#     "setuptools==74.0.0",
+#     "six==1.16.0",
+#     "sqlalchemy==2.0.32",
+#     "statsforecast==1.7.6",
+#     "statsmodels==0.14.2",
+#     "tabulate==0.9.0",
+#     "threadpoolctl==3.5.0",
+#     "tqdm==4.66.5",
+#     "triad==0.9.8",
+#     "typing==3.7.4.3",
+#     "typing-extensions==4.12.2",
+#     "tzdata==2024.1",
+#     "utilsforecast==0.2.3",
+#     "window-ops==0.0.15",
+#     "xgboost==2.1.1",
+# ]
+# ///
+import os
+import sys
+import warnings
+warnings.filterwarnings("ignore")
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm  # for progress bar
+from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+import tabulate
+from rich.console import Console
+from rich.table import Table
+from rich.prompt import Prompt
+from rich.progress import Progress
+from rich.traceback import install
+from rich.logging import RichHandler
+import logging
+from openpyxl import load_workbook  #
+from datetime import datetime
+
+from statsforecast import StatsForecast
+from statsforecast.feature_engineering import mstl_decomposition
+from statsforecast.models import (
+    AutoARIMA, AutoETS, AutoTheta, AutoCES, AutoMFLES,
+    SeasonalExponentialSmoothingOptimized, SimpleExponentialSmoothingOptimized,
+    HoltWinters, CrostonClassic as Croston, DynamicOptimizedTheta as DOT,
+    MSTL, TBATS, OptimizedTheta, SeasonalNaive, SeasonalWindowAverage
+)
+from utilsforecast.losses import rmse, mae, smape, mape
+from utilsforecast.evaluation import evaluate
+from mlforecast import MLForecast
+from mlforecast.target_transforms import Differences, AutoSeasonalityAndDifferences, LocalStandardScaler
+from mlforecast.lag_transforms import (
+    RollingMean, RollingMax, RollingMin, RollingStd,
+    ExpandingMean, ExpandingMax, ExpandingMin, ExpandingStd,
+    ExponentiallyWeightedMean
+)
+from mlforecast.utils import PredictionIntervals
+from sklearn.linear_model import (
+    LinearRegression, TheilSenRegressor, RANSACRegressor, HuberRegressor,
+    QuantileRegressor, LassoCV, Ridge, ElasticNet, ElasticNetCV
+)
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor,
+    HistGradientBoostingRegressor, AdaBoostRegressor, BaggingRegressor,
+    StackingRegressor, VotingRegressor
+)
+from statsforecast.utils import ConformalIntervals
+from statsforecast.models import SklearnModel
+from sklearn.linear_model import Lasso, Ridge, ElasticNet, LinearRegression, HuberRegressor, RANSACRegressor, QuantileRegressor
+
+
+from sklearn.svm import LinearSVR
+from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
+
+
+from mlforecast.auto import AutoModel, AutoXGBoost, AutoLinearRegression, AutoRidge, AutoLasso, AutoElasticNet, AutoLightGBM, AutoMLForecast
+from typing import Dict, Any
+
+os.environ['NIXTLA_ID_AS_COL'] = '1'
+
+console = Console()
+install()
+
+# Setup Rich logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",  # Simplified format to allow Rich to handle styling
+    handlers=[RichHandler(rich_tracebacks=True, markup=True)]  # Enable markup for color and style
+)
+
+
+logger = logging.getLogger("rich")
+
+def get_base_path():
+    """Retrieve the base path of the script or executable."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+def ensure_directory(directory_path):
+    """Ensure that a directory exists; if not, create it."""
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
+
+data_dir = os.path.join(get_base_path(), 'data')
+
+
+
+def display_df_with_rich(df):
+    table = Table(show_header=True, header_style="white")
+    for column in df.columns:
+        table.add_column(column)
+    for _, row in df.iterrows():
+        table.add_row(*[str(item) for item in row])
+    console.print(table)
+
+
+def prompt_user_for_file(data_dir):
+    """Prompt the user to select an Excel file and a sheet from the data directory."""
+    console.print("[bold cyan]\n*ENSURE DATA IS IN /DATA FODLER*\n[/bold cyan]")
+
+    files = [f for f in os.listdir(data_dir) if f.endswith(('.xlsx', '.xls'))]
+    if not files:
+        console.print("[red]No Excel files found in the data directory.[/red]")
+        return None, None
+
+    # Display the format example from the EXAMPLE.xlsx
+    example_path = os.path.join(data_dir, 'EXAMPLE.xlsx')
+    try:
+        example_df = pd.read_excel(example_path)
+        console.print("[bold cyan]Example data format from 'EXAMPLE.xlsx':[/bold cyan]")
+        print(example_df.head(20))
+    except Exception as e:
+        console.print(f"[red]Failed to load 'EXAMPLE.xlsx': {e}[/red]")
+        return None, None
+
+    # Let the user choose a file
+    console.print("\n[bold cyan]Available Excel files:[/bold cyan]")
+    for index, file in enumerate(files):
+        console.print(f"[bold]{index + 1})[/bold] {file}")
+    file_index = Prompt.ask("Choose a file by number", choices=[str(i + 1) for i in range(len(files))], default="1")
+    file_name = files[int(file_index) - 1]
+    full_file_path = os.path.join(data_dir, file_name)
+
+    # Load workbook to get sheet names
+    workbook = load_workbook(filename=full_file_path, data_only=True)
+    sheets = workbook.sheetnames
+    console.print("\n[bold cyan]Available sheets in the selected file:[/bold cyan]")
+    for index, sheet in enumerate(sheets):
+        console.print(f"[bold]{index + 1})[/bold] {sheet}")
+
+    sheet_choices = [str(i + 1) for i in range(len(sheets))] + ['Other']
+    sheet_index = Prompt.ask("Choose a sheet by number or select 'Other' to type a custom name", choices=sheet_choices, default="1")
+    if sheet_index == 'Other':
+        sheet_name = Prompt.ask("Enter the custom sheet name")
+        if sheet_name not in sheets:
+            console.print("[red]Invalid sheet name entered.[/red]")
+            return None, None
+    else:
+        sheet_name = sheets[int(sheet_index) - 1]
+
+    return full_file_path, sheet_name
+
+def load_and_transform_data(file_name, sheet_name):
+    df = pd.read_excel(file_name, sheet_name=sheet_name)
+    df = (
+        df.rename(columns={'Tag': 'Product'})
+          .melt(id_vars='Product', var_name='Tag', value_name='Value')
+          .assign(Tag=lambda x: x['Tag'].astype(int))
+          .sort_values(by=['Product', 'Tag'])
+          .rename(columns={'Product': 'unique_id', 'Tag': 'ds', 'Value': 'y'})
+          .reset_index(drop=True)
+    )
+    return df
+
+def evaluate_cross_validation(df, metric):
+    models = df.drop(columns=['unique_id', 'ds', 'cutoff', 'y']).columns.tolist()
+    evals = []
+    
+    for cutoff in df['cutoff'].unique():
+        eval_ = evaluate(df[df['cutoff'] == cutoff], metrics=[metric], models=models)
+        evals.append(eval_)
+    
+    evals = pd.concat(evals)
+    evals = evals.groupby('unique_id').mean(numeric_only=True)
+    evals['best_model'] = evals.idxmin(axis=1)
+    
+    return evals
+
+def get_best_model_forecast(forecasts_df, evaluation_df, level=95):
+    df = forecasts_df.set_index(['unique_id', 'ds']).stack().to_frame().reset_index(level=2)
+    df.columns = ['model', 'best_model_forecast']
+    df = df.join(evaluation_df[['best_model']])
+    
+    str_low = f'-lo-{level}'
+    str_high = f'-hi-{level}'
+    
+    df = df.query(f'model.str.replace("{str_low}|{str_high}", "", regex=True) == best_model').copy()
+    df.loc[:, 'model'] = [model.replace(bm, 'best_model') for model, bm in zip(df['model'], df['best_model'])]
+    df = df.drop(columns='best_model').set_index('model', append=True).unstack()
+    df.columns = df.columns.droplevel()
+    df.columns.name = None
+    df = df.reset_index()
+    
+    return df
+
+def reporting_week(dates):
+    return ((dates - 1) % 14 + 1).astype('uint8')
+
+def reporting_year(dates):
+    return ((dates - 1) // 14 + 1).astype('uint16')
+
+
+def inverse_error_weighting(row: pd.Series) -> Dict[str, float]:
+    """
+    Calculate weights based on inverse errors for the top 3 models with the lowest errors.
+
+    Parameters:
+    row (pd.Series): Series containing error values for different models.
+
+    Returns:
+    Dict[str, float]: Dictionary with model names as keys and their corresponding weights as values.
+    """
+    # Sorting the errors and getting the top 3 models with the lowest errors
+    top3: pd.Series = row.sort_values().head(3)
+    # Calculating inverse errors
+    inverse_errors: pd.Series = 1 / top3
+    # Calculating weights based on inverse errors
+    weights: pd.Series = inverse_errors / inverse_errors.sum()
+    # Returning the dictionary of models and their weights
+    return weights.to_dict()
+
+def calculate_weighted_average(row: pd.Series) -> float:
+    """
+    Calculate the weighted average of model values based on the weights of the top 3 models.
+
+    Parameters:
+    row (pd.Series): Series containing model values and a dictionary of model weights under the key 'Three Best Models'.
+
+    Returns:
+    float: Weighted average of the model values.
+    """
+    # Retrieving the dictionary of top models and their weights
+    top_models: Dict[str, float] = row['Three Best Models']
+    weighted_sum: float = 0
+    total_weight: float = 0
+    
+    # Calculating the weighted sum of the model values
+    for model, weight in top_models.items():
+        model_value: Any = row.get(model, 0)  # Default to 0 if the model value is not present
+        weighted_sum += model_value * weight
+        total_weight += weight
+    
+    # Returning the weighted average, handling the case where total weight is zero
+    return weighted_sum / total_weight if total_weight != 0 else 0
+
+logging.getLogger('optuna').setLevel(logging.WARNING) #Uncomment this line if you want to suppress INFO messages from Optuna
+
+def lassocv_space(trial):
+    return {
+        'eps': trial.suggest_loguniform('eps', 1e-5, 1e-2),
+        'n_alphas': trial.suggest_int('n_alphas', 50, 200),
+        'max_iter': trial.suggest_int('max_iter', 100, 3000),
+        'tol': trial.suggest_loguniform('tol', 1e-5, 1e-2),
+        'cv': trial.suggest_int('cv', 3, 10),
+        'precompute': 'auto'  # or 'False' to disable
+    }
+
+def theil_sen_space(trial):
+    return {
+        'max_iter': trial.suggest_int('max_iter', 100, 3000),
+        'tol': trial.suggest_loguniform('tol', 1e-5, 1e-2),
+        'max_subpopulation': trial.suggest_int('max_subpopulation', 5000, 20000)
+    }
+
+def ransac_space(trial):
+    return {
+        'max_trials': trial.suggest_int('max_trials', 50, 500),
+        'min_samples': trial.suggest_uniform('min_samples', 0.1, 1.0),
+        'max_skips': trial.suggest_int('max_skips', int(1e4), int(1e6), log=True),
+        'stop_probability': trial.suggest_uniform('stop_probability', 0.90, 0.99)
+    }
+
+def huber_space(trial):
+    return {
+        'epsilon': trial.suggest_uniform('epsilon', 1.1, 2.0),
+        'max_iter': trial.suggest_int('max_iter', 100, 3000),
+        'alpha': trial.suggest_loguniform('alpha', 1e-5, 10),
+        'tol': trial.suggest_loguniform('tol', 1e-5, 1e-2)
+    }
+
+def quantile_space(trial):
+    return {
+        'quantile': trial.suggest_uniform('quantile', 0.1, 0.9),
+        'alpha': trial.suggest_loguniform('alpha', 1e-5, 10),
+        'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False]),
+        # 'solver': trial.suggest_categorical('solver', ['highs', 'highs-ds', 'highs-ipm', 'interior-point', 'revised simplex'])
+    }
+
+def knn_space(trial):
+    return {
+        'n_neighbors': trial.suggest_int('n_neighbors', 1, 20),
+        'weights': trial.suggest_categorical('weights', ['uniform', 'distance']),
+        'algorithm': trial.suggest_categorical('algorithm', ['auto', 'ball_tree', 'kd_tree', 'brute']),
+        'leaf_size': trial.suggest_int('leaf_size', 10, 50),
+        'p': trial.suggest_int('p', 1, 2)
+    }
+
+def mlp_space(trial):
+    return {
+        'hidden_layer_sizes': trial.suggest_categorical('hidden_layer_sizes', [(50,), (100,), (50, 50), (100, 50)]),
+        'activation': trial.suggest_categorical('activation', ['tanh', 'relu']),
+        'solver': trial.suggest_categorical('solver', ['sgd', 'adam']),
+        'alpha': trial.suggest_loguniform('alpha', 1e-5, 1e-2),
+        'learning_rate': trial.suggest_categorical('learning_rate', ['constant', 'adaptive']),
+        'max_iter': trial.suggest_int('max_iter', 100, 500)
+    }
+
+def rf_space(trial):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 10, 300),
+        'max_depth': trial.suggest_int('max_depth', 2, 32, log=True),
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 20),
+        # 'max_features': trial.suggest_categorical('max_features', ['auto', 'sqrt', 'log2'])
+    }
+
+def gbm_space(trial):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 1e-3, 1.0),
+        'max_depth': trial.suggest_int('max_depth', 2, 32, log=True),
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 20),
+        'subsample': trial.suggest_uniform('subsample', 0.6, 1.0)
+    }
+
+def extra_trees_space(trial):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 10, 300),
+        'max_depth': trial.suggest_int('max_depth', 2, 32, log=True),
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 20),
+        # 'max_features': trial.suggest_categorical('max_features', ['auto', 'sqrt', 'log2'])
+    }
+
+def hist_gbm_space(trial):
+    return {
+        'max_iter': trial.suggest_int('max_iter', 50, 500),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 1e-3, 1.0),
+        'max_depth': trial.suggest_int('max_depth', 2, 32, log=True),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 20),
+        'max_bins': trial.suggest_int('max_bins', 32, 255),
+        'l2_regularization': trial.suggest_loguniform('l2_regularization', 1e-10, 1.0)
+    }
+
+def adaboost_space(trial):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 1e-3, 1.0),
+        'loss': trial.suggest_categorical('loss', ['linear', 'square', 'exponential'])
+    }
+
+def bagging_space(trial):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 10, 100),
+        'max_samples': trial.suggest_uniform('max_samples', 0.5, 1.0),
+        'max_features': trial.suggest_uniform('max_features', 0.5, 1.0),
+        'bootstrap': trial.suggest_categorical('bootstrap', [True, False]),
+        'bootstrap_features': trial.suggest_categorical('bootstrap_features', [True, False])
+    }
+
+def svr_space(trial):
+    return {
+        'kernel': trial.suggest_categorical('kernel', ['linear', 'poly', 'rbf', 'sigmoid']),
+        'C': trial.suggest_loguniform('C', 1e-2, 1e2),
+        'epsilon': trial.suggest_loguniform('epsilon', 1e-3, 1.0),
+        'gamma': trial.suggest_categorical('gamma', ['scale', 'auto'])
+    }
+
+def linear_svr_space(trial):
+    return {
+        'epsilon': trial.suggest_loguniform('epsilon', 1e-3, 1.0),
+        'C': trial.suggest_loguniform('C', 1e-2, 1e2),
+        'loss': trial.suggest_categorical('loss', ['epsilon_insensitive', 'squared_epsilon_insensitive']),
+        'intercept_scaling': trial.suggest_loguniform('intercept_scaling', 1e-1, 1e1)
+    }
+
+def elastic_net_space(trial):
+    return {
+        'alpha': trial.suggest_loguniform('alpha', 1e-5, 10),
+        'l1_ratio': trial.suggest_uniform('l1_ratio', 0, 1),
+        'fit_intercept': trial.suggest_categorical('fit_intercept', [True, False]),
+        'max_iter': trial.suggest_int('max_iter', 100, 3000),
+        'tol': trial.suggest_loguniform('tol', 1e-5, 1e-2),
+        'selection': trial.suggest_categorical('selection', ['cyclic', 'random'])
+    }
+
+def elastic_net_cv_space(trial):
+    return {
+        'l1_ratio': trial.suggest_uniform('l1_ratio', 0, 1),
+        'eps': trial.suggest_loguniform('eps', 1e-5, 1e-2),
+        'n_alphas': trial.suggest_int('n_alphas', 50, 200),
+        'max_iter': trial.suggest_int('max_iter', 100, 3000),
+        'tol': trial.suggest_loguniform('tol', 1e-5, 1e-2),
+        'cv': trial.suggest_int('cv', 3, 10)
+    }
+def get_forecast(models, h):
+    forecast_df = None
+
+    for model_name, model in models.items():
+        try:
+            forecast = model.predict(h, level = [95])
+            
+            # Rename the forecast column to include the model name
+            forecast = forecast.rename(columns={model_name: f'{model_name}'})
+            
+            if forecast_df is None:
+                forecast_df = forecast
+            else:
+                # Merge on 'unique_id' and 'ds'
+                forecast_df = pd.merge(forecast_df, forecast, on=['unique_id', 'ds'], how='outer')
+        
+        except Exception as e:
+            print(f"Error forecasting with {model_name}: {str(e)}")
+    
+    return forecast_df
+
+
+
+def get_cross(models, df, h):
+    cross_df = None
+    for model_name, model in models.items():
+        try:
+            # Fit the model and make predictions
+
+            cross = model.cross_validation(df = df , h = h, n_windows=2)
+            
+            # Rename the forecast column to include the model name
+            cross = cross.rename(columns={model_name: f'{model_name}'})
+            
+            if cross_df is None:
+                cross_df = cross
+            else:
+                # Merge on 'unique_id' and 'ds'
+                cross_df = pd.merge(cross_df, cross, on=['unique_id', 'ds', 'y', 'cutoff'], how='inner')
+        
+        except Exception as e:
+            print(f"Error forecasting with {model_name}: {str(e)}")
+    
+    return cross_df
+
+
+def main():
+    logger.info("Script made by Wes Stone <wesstone@microsoft> (AKA it's messy, but works)")
+    base_path = get_base_path()  # Get the path where the executable resides or the script is running
+    output_dir = os.path.join(base_path, 'output')  # Define the output directory path
+    ensure_directory(output_dir)  # Ensure the output directory exists
+    filename, sheetname = prompt_user_for_file(data_dir)
+
+    
+    try:
+        if filename and sheetname:
+            logger.info(f"Selected file: [green]{filename}[/green], Sheet: [green]{sheetname}[/green]")
+        else:
+            logger.error("[red]File selection canceled or no files available.[/red]")
+    except Exception as e:
+        logger.exception(f"An error occurred with: {e}")
+    df = load_and_transform_data(filename, sheetname)
+    logger.info("Data loaded successfully.")
+    logger.info("Transformed DataFrame Preview:\n")
+    display_df_with_rich(df.head(20))
+
+    logger.info("Starting data processing...")
+    logger.info("Modeling will take ~30-60 minutes to complete...Don't close the window...")
+    logger.info("[green]Tip[/green]: to increase speed, set power  mode to best performance, plug into charger, close other applications, and avoid using the computer during modeling")
+
+    season = 14
+    len_keys = 0
+    models = [
+            AutoARIMA(season_length=season), AutoETS(season_length=season), AutoTheta(season_length=season),
+            AutoCES(season_length=season), AutoMFLES(season_length=season, test_size=14),
+            SeasonalExponentialSmoothingOptimized(season_length=season), SimpleExponentialSmoothingOptimized(),
+            HoltWinters(season_length=season), Croston(), DOT(season_length=season), MSTL(season_length=season),
+            TBATS(season_length=season), OptimizedTheta(season_length=season),
+            SeasonalNaive(season_length=season),
+            SeasonalWindowAverage(season_length=season, window_size=3, alias='Seasonal Average: 3 yr'),
+            SeasonalWindowAverage(season_length=season, window_size=2, alias='Seasonal Average: 2 yr'),
+        ]
+    len_keys = len(models)
+    models2 = [
+    SklearnModel(Lasso(), alias="local_lasso"),
+    SklearnModel(Lasso(alpha = .5), alias="local_lasso_alpha_0.5"),
+        SklearnModel(Ridge(), alias="local_ridge"),
+        SklearnModel(Ridge(alpha=10), alias="local_ridge_alpha_10"),
+        SklearnModel(ElasticNet(), alias="local_elastic"),
+        SklearnModel(ElasticNet(alpha=0.5, l1_ratio=0.7), alias="local_elastic_alpha_0.5_l1_ratio_0.7"),
+        SklearnModel(LinearRegression(), alias="local_linear"),
+        SklearnModel(HuberRegressor(), alias="local_huber"),
+        SklearnModel(HuberRegressor(epsilon=1.5), alias="local_huber_epsilon_1.5"),
+        SklearnModel(RANSACRegressor(), alias="local_ransac"),
+        SklearnModel(RANSACRegressor(max_trials=150), alias="local_ransac_max_trials_150"),
+        SklearnModel(QuantileRegressor(), alias="local_quantile"),
+        SklearnModel(QuantileRegressor(quantile=.75), alias="local_quantile_75"),
+        SklearnModel(LinearSVR(), alias="local_svr"),
+        SklearnModel(LinearSVR(C=0.1), alias="local_svr_linear_c0.1"),
+        SklearnModel(DecisionTreeRegressor(), alias="local_dtree"),
+        SklearnModel(DecisionTreeRegressor(max_depth=5), alias="local_dtree_max_depth_5"),
+        SklearnModel(TheilSenRegressor(), alias="local_theilsen"),
+        SklearnModel(TheilSenRegressor(max_subpopulation=100), alias="local_theilsen_subpop_100"),
+        AutoARIMA(season_length=season, alias='AutoARIMA (MSTL)')
+]
+    len_keys = len_keys + len(models2)
+    
+     # MLForecast part
+    ml_models = {
+            'lasso_cv': LassoCV(), 'ridge': Ridge(), 'linear': LinearRegression(),
+            'theil_sen': TheilSenRegressor(), 'ransac': RANSACRegressor(random_state=0),
+            'huber': HuberRegressor(), 'quantile': QuantileRegressor(), 'knn_5': KNeighborsRegressor(n_neighbors=5),
+            'knn_10': KNeighborsRegressor(n_neighbors=10), 'mlp_100': MLPRegressor(hidden_layer_sizes=(100,), random_state=0),
+            'mlp_100_50': MLPRegressor(hidden_layer_sizes=(100, 50), random_state=0),
+            'rf_100': RandomForestRegressor(n_estimators=50, max_depth=3, random_state=0),
+            'rf_200': RandomForestRegressor(n_estimators=100, max_depth=5, random_state=0),
+            'gbm_100': GradientBoostingRegressor(n_estimators=50, learning_rate=0.1, max_depth=3, random_state=0),
+            'gbm_200': GradientBoostingRegressor(n_estimators=100, learning_rate=0.05, max_depth=5, random_state=0),
+            'extra_trees_100': ExtraTreesRegressor(n_estimators=50, max_depth=10, random_state=0),
+            'hist_gbm': HistGradientBoostingRegressor(random_state=0), 'adaboost_50': AdaBoostRegressor(n_estimators=50, random_state=0),
+            'bagging_50': BaggingRegressor(n_estimators=50, random_state=0), 'linear_svr': LinearSVR(),
+            'elastic_l1_0.5': ElasticNet(l1_ratio=0.5), 'elastic_l1_0.7': ElasticNet(l1_ratio=0.7), 'elastic_cv': ElasticNetCV(),
+            'xgb_100': XGBRegressor(n_estimators=50, learning_rate=0.05, max_depth=3, random_state=0),
+            'xgb_200': XGBRegressor(n_estimators=100, learning_rate=0.03, max_depth=5, random_state=0),
+            'stacking': StackingRegressor(estimators=[('rf', RandomForestRegressor()), ('gbm', GradientBoostingRegressor())], final_estimator=Ridge()),
+            'stacking_2': StackingRegressor(estimators=[
+                ('elastic', ElasticNet()), ('ada', AdaBoostRegressor()), ('dt', DecisionTreeRegressor(max_depth=5))
+            ], final_estimator=LinearRegression()),
+        }
+    len_keys = len_keys + len(ml_models)
+
+    models_auto = {
+    'auto_xgb': AutoXGBoost(),
+    'auto_lgb': AutoLightGBM(),
+    'auto_linear': AutoLinearRegression(),
+    'auto_ridge': AutoRidge(),
+    'auto_lasso': AutoLasso(),
+    'auto_elastic_net': AutoElasticNet(),
+    'auto_lasso_cv': AutoModel(LassoCV(random_state=0), lassocv_space),
+    'auto_theil_sen': AutoModel(TheilSenRegressor(random_state=0), theil_sen_space),
+    'auto_ransac': AutoModel(RANSACRegressor(random_state=0), ransac_space),
+    'auto_huber': AutoModel(HuberRegressor(), huber_space),
+    'auto_quantile': AutoModel(QuantileRegressor(), quantile_space),
+    'auto_knn': AutoModel(KNeighborsRegressor(), knn_space),
+    'auto_rf': AutoModel(RandomForestRegressor(random_state=0), rf_space),
+    'auto_gbm': AutoModel(GradientBoostingRegressor(random_state=0), gbm_space),
+    'auto_extra_trees': AutoModel(ExtraTreesRegressor(random_state=0), extra_trees_space),
+    'auto_hist_gbm': AutoModel(HistGradientBoostingRegressor(random_state=0), hist_gbm_space),
+    'auto_adaboost': AutoModel(AdaBoostRegressor(random_state=0), adaboost_space),
+    'auto_bagging': AutoModel(BaggingRegressor(random_state=0), bagging_space),
+    'auto_linear_svr': AutoModel(LinearSVR(random_state=0), linear_svr_space),
+
+    }
+    len_keys = len_keys + len(models_auto)
+
+    logger.info(f"Total number of models to run: {len_keys}")
+    logger.info("Forecasting using statistical and ML models (local models)...")
+    sf = StatsForecast(models=models, freq=1, fallback_model=SeasonalNaive(season_length=season), n_jobs=-1)
+    sf_mstl = StatsForecast(models=models2, freq=1, n_jobs=-1)
+
+
+
+    transformed_df, X_df = mstl_decomposition(df, model=MSTL(season_length=season), freq=1, h=14)
+    transformed_df['reporting_week'] = transformed_df['ds'] % 14
+    transformed_df['reporting_week'] = transformed_df['reporting_week'].replace(0, 14)
+    X_df['reporting_week'] = X_df['ds'] % 14
+    X_df['reporting_week'] = X_df['reporting_week'].replace(0, 14)
+
+    forecasts_df = sf.forecast(df=df, h=14, level=[95], fitted=True, prediction_intervals=ConformalIntervals(h = 14, n_windows = 2))
+    forecasts_df_MSTL = sf_mstl.forecast(df=transformed_df, X_df=X_df, h=14, level=[95], fitted=True,prediction_intervals=ConformalIntervals(h = 14, n_windows = 2))
+
+
+    forecasts_df = forecasts_df.merge(forecasts_df_MSTL, on=['unique_id', 'ds'], how='inner')
+    
+    logger.info("Statistical models forecast completed successfully.")
+    logger.info("Checking performance of the models using cross-validation...")
+
+    cross_val_df = sf.cross_validation(df=df, h=14, step_size=14, n_windows=2).reset_index(inplace=False)
+    cross_val_df_MSTL = sf_mstl.cross_validation(df=transformed_df, h=14, step_size=14, n_windows=2).reset_index(inplace=False)
+    cross_val_df = cross_val_df.merge(cross_val_df_MSTL.drop(['cutoff', 'y'], axis=1), on=['index', 'unique_id', 'ds'], how='inner')
+
+    crossvalidation_df = cross_val_df[cross_val_df['unique_id'] == 'Surface']
+    crossvalidation_df.rename(columns={'y': 'actual'}, inplace=True)
+
+
+
+
+
+    logger.info("Forecasting using ML models (global models)...")
+
+
+    from sklearn.preprocessing import LabelEncoder
+    le = LabelEncoder()
+
+    #Feature Engineering
+    df['unique_id_encoded'] = le.fit_transform(df['unique_id']) 
+    df['product_category'] = le.fit_transform(df['unique_id'].str.extract(r'^([A-Za-z0-9\s]+(?:\s\d+)?)'))
+    df['type'] = le.fit_transform(df['unique_id'].str.replace(r'^[A-Za-z0-9\s]+(?:\s\d+)?-', '', regex=True))
+
+
+    fcst_auto = MLForecast(
+            models=ml_models, freq=1, lags=[(i + 1) for i in range(14)],
+            date_features=[reporting_week, reporting_year],
+            lag_transforms={
+                1: [RollingMean(window_size=3), RollingMean(window_size=6), RollingMax(window_size=3), RollingMin(window_size=3), RollingStd(window_size=3),
+                    ExpandingMean(), ExpandingMax(), ExpandingMin(), ExpandingStd(), ExponentiallyWeightedMean(alpha=0.3)],
+                7: [RollingMean(window_size=7), RollingMax(window_size=7), RollingMin(window_size=7), RollingStd(window_size=7),
+                    ExpandingMean(), ExpandingMax(), ExpandingMin(), ExpandingStd(), ExponentiallyWeightedMean(alpha=0.3)],
+            }, num_threads=-1
+        )
+
+
+    fcst_auto.fit(df=df, id_col='unique_id', time_col='ds', target_col='y', 
+                  prediction_intervals=PredictionIntervals(h=14, n_windows=2), as_numpy=True,
+                  static_features=['unique_id_encoded', 'product_category', 'type'])
+    
+    preds_auto = fcst_auto.predict(h=14, level=[95])
+    logger.info("ML models forecast completed successfully.")
+    logger.info("Checking performance of the models using cross-validation...")
+    cross_val_df_auto = fcst_auto.cross_validation(df=df, h=14, step_size=14, n_windows=2,static_features=['unique_id_encoded', 'product_category', 'type'])
+
+
+
+    
+    final_models = {}
+    logger.info("Fitting models using AutoMLForecast to optimize hyperparameters...")
+# Loop over each model in the models dictionary
+    for model_name, model in models_auto.items():
+
+        # logger.info(f"Fitting model: {model_name}")
+        try:
+            # Initialize the AutoMLForecast instance for each model
+            fcst_auto = AutoMLForecast(
+                models={model_name: model},  # Use only the current model
+                freq=1,
+                season_length=14,
+                num_threads=-1,
+                fit_config=lambda trial: {'static_features': ['unique_id_encoded', 'product_category', 'type']},
+                
+            )
+            # Fit the model using the specified parameters
+            auto = fcst_auto.fit(
+                df=df,
+                n_windows=2,
+                h=14,
+                fitted=True,
+                prediction_intervals=PredictionIntervals(h=14, n_windows=2),
+                num_samples=50, #Number of trials to run
+                
+            )
+            # Optionally print results or save them
+            # logger.info(f"Model {model_name} fitted successfully.")
+            # Optionally break after the first successful model fit
+            # break
+            model = auto.models_[model_name]
+            final_models[model_name] = model
+            # logger.info(f">> Model preview:\n-------------\n{model}\n--------------------------------------------------------------------------------")
+            # print(f'>> Params:\n-------------\n{model.models[model_name].get_params()}\n')
+
+
+        except Exception as e:
+            # Print an error message if the model fitting fails
+            logger.info(f"Model {model_name} failed with error: {e}")
+    logger.info("AutoMLForecast models fitted successfully.")
+    
+    auto_fcst = get_forecast(final_models, 14).reset_index(inplace=False)
+    auto_cross = get_cross(final_models, df, h = 14).reset_index(inplace=False)
+
+    all_cross = cross_val_df.merge(cross_val_df_auto.drop('y', axis=1), on=['unique_id', 'ds', 'cutoff'], how='inner')
+    all_cross = all_cross.merge(auto_cross.drop('y', axis=1), on=['unique_id', 'ds', 'cutoff'], how='inner')
+
+
+    all_eval = evaluate_cross_validation(all_cross, rmse)
+    all_fcst = forecasts_df.merge(preds_auto, on=['unique_id', 'ds'], how='inner')
+    all_fcst = all_fcst.merge(auto_fcst, on=['unique_id', 'ds'], how='inner')
+
+    logger.info("Finding best model of stat and ML models...")
+
+    best_all = get_best_model_forecast(forecasts_df=all_fcst, evaluation_df=all_eval)
+
+
+
+    logger.info("Weighting top 3 models based on inverse errors and calculating weighted average...")
+        # Calculate inverse error weighting
+    weighted_df = (
+            all_eval
+            .drop(columns='best_model')
+            .apply(inverse_error_weighting, axis=1)
+            .reset_index()
+            .rename(columns={0: 'Weights for Best Models'})
+        )
+
+        # Map the 'Three Best Models' weights to the forecasts_df using 'unique_id'
+    weighted_fcst_df = all_fcst.copy()
+    weighted_fcst_df['Three Best Models'] = weighted_fcst_df['unique_id'].map(weighted_df.set_index('unique_id')['Weights for Best Models'])
+
+        # Calculate the weighted average of the forecasts
+    weighted_fcst_df['Weighted Forecast'] = weighted_fcst_df.apply(calculate_weighted_average, axis=1)
+        # print(tabulate.tabulate(weighted_fcst_df.head(20), headers='keys', tablefmt='pretty'))
+
+    logger.info("Calculating final results and saving to Excel...")    
+
+        # Combine forecasts and weighted forecasts for final DataFrame
+    combined_df = pd.merge(all_fcst, weighted_fcst_df[['unique_id', 'ds', 'Weighted Forecast']], on=['unique_id', 'ds'], how='outer')
+    combined_df = combined_df.merge(best_all, on=['unique_id', 'ds'], how='outer')
+    combined_df['best_model'] = combined_df['best_model'].astype(float)
+    combined_df['best_model-hi-95'] = combined_df['best_model-hi-95'].astype(float)
+    combined_df['best_model-lo-95'] = combined_df['best_model-lo-95'].astype(float)
+    combined_df['Weighted Forecast'] = combined_df['Weighted Forecast'].astype(float)
+    combined_df = combined_df.rename(columns={'Weighted Forecast': 'Weighted_Average'})
+
+        # Pivot the final DataFrame
+    excel_df_CI = combined_df.pivot(index='unique_id', 
+                                        columns='ds', 
+                                        values=['best_model', 'best_model-hi-95', 'best_model-lo-95', 'Weighted_Average'])
+        
+        # save_to_excel(all_eval, all_fcst, best_all, excel_df_CI)
+        #save excel_df_CI to excel
+
+    #get current date
+    current_date = datetime.now().strftime('%Y-%m-%d')   
+    current_time = datetime.now().strftime('%I-%M-%p')
+    output_file_path = os.path.join(output_dir, f'forecast_results_{sheetname}_{current_date}_{current_time}.xlsx')
+    excel_df_CI.to_excel(output_file_path, index=True)
+    logger.info(f"Results saved to output/forecast_results_{sheetname}_{current_date}_{current_time}.xlsx", extra={"markup": False})
+
+    #all evals to excel
+    evals_output = os.path.join(output_dir, f'evaluation_results_{sheetname}_{current_date}_{current_time}.xlsx')
+    all_eval.to_excel(evals_output, index=True)
+    logger.info(f"Evaluation results saved to output/evaluation_results_{sheetname}_{current_date}_{current_time}.xlsx", extra={"markup": False})
+
+    #make them hit enter to close the program
+    input("Press Enter to exit...\n")
+    os._exit(0)
+
+if __name__ == "__main__":
+    main()
